@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: Pix Participant API (alvo da fintech-challenge)
+  version: 1.0.0
+paths:
+  /pix/send:
+    post:
+      summary: Inicia envio de Pix (idempotente)
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRequest'
+      responses:
+        '202':
+          description: Aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendAccepted'
+  /pix/send/{payment_id}:
+    get:
+      summary: Consulta status
+      parameters:
+        - in: path
+          name: payment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+  /webhooks/pix:
+    post:
+      summary: Webhook do provedor (dedup por event_id)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookEvent'
+      responses:
+        '204': { description: Processado }
+
+  /ledger/balances:
+    get:
+      summary: (Opcional) Retorna saldos por conta do ledger
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerBalances'
+
+  /ledger/entries:
+    get:
+      summary: (Opcional) Lista lançamentos do ledger (filtrável por payment_id)
+      parameters:
+        - in: query
+          name: payment_id
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerEntries'
+components:
+  schemas:
+    SendRequest:
+      type: object
+      required: [txid, amount, receiver_key]
+      properties:
+        txid: { type: string }
+        amount: { type: integer, format: int64, description: "em centavos" }
+        receiver_key: { type: string }
+        description: { type: string }
+        client_reference: { type: string }
+    SendAccepted:
+      type: object
+      properties:
+        payment_id: { type: string }
+        status: { type: string, enum: [CREATED, SENT, PENDING] }
+    Payment:
+      type: object
+      properties:
+        payment_id: { type: string }
+        status: { type: string }
+        provider_payment_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    WebhookEvent:
+      type: object
+      required: [event_id, provider_payment_id, type, occurred_at]
+      properties:
+        event_id: { type: string }
+        provider_payment_id: { type: string }
+        type: { type: string, enum: [PAYMENT_PENDING, PAYMENT_CONFIRMED, PAYMENT_REJECTED] }
+        occurred_at: { type: string, format: date-time }
+        details:
+          type: object
+          additionalProperties: true
+
+    LedgerBalances:
+      type: object
+      properties:
+        as_of:
+          type: string
+          format: date-time
+        balances:
+          type: array
+          items:
+            type: object
+            required: [account, amount]
+            properties:
+              account: { type: string }
+              amount: { type: integer, format: int64, description: "em centavos" }
+
+    LedgerEntries:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required: [posting_id, payment_id, occurred_at, lines]
+            properties:
+              posting_id: { type: string }
+              payment_id: { type: string }
+              occurred_at: { type: string, format: date-time }
+              kind: { type: string, enum: [HOLD, SETTLE, RELEASE, FEE] }
+              lines:
+                type: array
+                minItems: 2
+                items:
+                  type: object
+                  required: [account, direction, amount]
+                  properties:
+                    account: { type: string }
+                    direction: { type: string, enum: [DEBIT, CREDIT] }
+                    amount: { type: integer, format: int64 }

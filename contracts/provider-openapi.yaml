@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Pix Mock Provider API
+  version: 1.0.0
+paths:
+  /provider/pix/send:
+    post:
+      summary: Inicia um envio de Pix (simulado)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRequest'
+      parameters:
+        - in: header
+          name: X-Correlation-Id
+          schema: { type: string }
+        - in: header
+          name: X-Mock-Scenario
+          description: força um cenário de falha (success|timeout|http500|confirm|reject|confirm_late|out_of_order)
+          schema: { type: string }
+      responses:
+        '202':
+          description: Aceito e em processamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendResponse'
+        '500':
+          description: Erro simulado
+  /provider/pix/payments/{provider_payment_id}:
+    get:
+      summary: Consulta status no provedor (simulado)
+      parameters:
+        - in: path
+          name: provider_payment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Status atual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderPayment'
+        '404':
+          description: Nao encontrado
+  /admin/health:
+    get:
+      summary: Healthcheck
+      responses:
+        '200': { description: ok }
+components:
+  schemas:
+    SendRequest:
+      type: object
+      required: [idempotency_key, txid, amount, receiver_key]
+      properties:
+        idempotency_key: { type: string }
+        txid: { type: string }
+        amount: { type: integer, format: int64, description: "em centavos" }
+        receiver_key: { type: string }
+        description: { type: string }
+        client_reference: { type: string }
+    SendResponse:
+      type: object
+      properties:
+        provider_payment_id: { type: string }
+        status: { type: string, enum: [PENDING, CONFIRMED, REJECTED] }
+    ProviderPayment:
+      type: object
+      properties:
+        provider_payment_id: { type: string }
+        idempotency_key: { type: string }
+        txid: { type: string }
+        amount: { type: integer, format: int64 }
+        receiver_key: { type: string }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }

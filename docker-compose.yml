@@ -1,0 +1,17 @@
+services:
+  mock-provider:
+    build: ./mock-provider
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - WEBHOOK_URL=http://host.docker.internal:8081/webhooks/pix
+      - FAILURE_MODE=probabilistic
+      - P_TIMEOUT=0.10
+      - P_HTTP500=0.05
+      - P_DUPLICATE_EVENT=0.15
+      - P_OUT_OF_ORDER_EVENT=0.10
+      - MIN_LATENCY_MS=50
+      - MAX_LATENCY_MS=350
+      - FINALIZE_MIN_MS=400
+      - FINALIZE_MAX_MS=1500

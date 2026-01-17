@@ -22,6 +22,12 @@ cd pix-fintech-challenge
 docker compose up --build
 ```
 
+Por padrão, o mock sobe com limites de CPU/memória (para fairness):
+- CPU: 0.25
+- Memória: 128 MB
+
+Você pode ajustar esses valores no `docker-compose.yml`.
+
 O mock fica em:
 - Base URL: `http://localhost:8080`
 - Health: `GET http://localhost:8080/health`

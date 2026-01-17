@@ -114,6 +114,61 @@ Variáveis (ver `docker-compose.yml`):
 
 ---
 
+## Regras da competição e pontuação
+### Objetivo
+Construir um serviço resiliente que processe envios Pix com **idempotência**, **deduplicação**, **reconciliação** e **consistência final** dos estados.
+
+### Duração e carga
+- Janela de execução: 10 a 20 minutos.
+- Carga variável com picos (ex.: 50–500 RPS).
+- Mix de cenários com erros e eventos fora de ordem (via mock).
+
+### Regras obrigatórias
+- `POST /pix/send` idempotente (mesma `Idempotency-Key` → mesma resposta e sem duplicar envio).
+- Deduplicação de webhooks por `event_id`.
+- Estado final deve ser **CONFIRMED** ou **REJECTED** (sem regressão).
+- Reconciliar pendências via consulta ao provedor.
+- Não duplicar débito (um pagamento não pode liquidar duas vezes).
+
+### Limites
+- CPU e memória limitadas (definir no compose ou na infraestrutura).
+- Timeouts de rede devem ser respeitados.
+- Sem dependência de serviços externos não especificados.
+
+### Métricas coletadas
+- Taxa de sucesso (processos completos).
+- Latência p95/p99 de `POST /pix/send`.
+- Consistência final dos estados (sem divergências).
+- Tolerância a falhas (retries sem duplicidade).
+
+### Penalidades
+- Pagamento liquidado mais de uma vez.
+- Status divergente entre `GET /pix/payments` e base interna.
+- Perda de evento ou estado “preso” indefinidamente.
+
+### Pontuação (exemplo)
+Pontuação normalizada entre 0 e 100:
+
+$$
+score = 100 \cdot \max\left(0, 0.55 \cdot S - 0.25 \cdot E - 0.20 \cdot L\right)
+$$
+
+Onde:
+- $S$ = taxa de sucesso (0–1)
+- $E$ = taxa de erros graves (0–1)
+- $L$ = penalidade de latência (0–1), baseada em p95/p99
+
+### Reprodutibilidade
+- Semente fixa para o gerador de cenários.
+- Relatório final com métricas + logs mínimos.
+
+### Entregáveis
+- Serviço participante executável.
+- Instruções de execução (README).
+- Relatório com métricas (ex.: JSON ou texto simples).
+
+---
+
 ## Desafio extra: Ledger (para dificultar)
 Além de manter o **status** do pagamento, cada implementação deve manter um **ledger contábil de dupla entrada** (double-entry) para garantir que o valor debitado e creditado fecha corretamente, mesmo com:
 - retry, timeout e resposta duplicada

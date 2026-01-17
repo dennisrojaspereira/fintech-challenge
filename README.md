@@ -144,6 +144,14 @@ Variáveis úteis:
 O script gera um relatório JSON em `reports/` com métricas básicas.
 Para validação automática do **ledger**, recomenda-se ter `jq` instalado.
 
+### CI (rodar o teste a cada commit)
+Existe um workflow em [\.github/workflows/ci.yml](.github/workflows/ci.yml) que roda o teste simples em cada push/PR.
+
+Para o CI funcionar, o participante precisa estar acessível. Configure a variável do repositório:
+- `PARTICIPANT_URL` (ex.: `http://localhost:8081` ou o endereço público do seu participante)
+
+O relatório do teste é publicado como artefato do workflow.
+
 ---
 
 ## Regras da competição e pontuação

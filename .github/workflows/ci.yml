@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  simple-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Start mock provider
+        run: docker compose up -d --build
+
+      - name: Wait for mock health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Mock provider not healthy" >&2
+          exit 1
+
+      - name: Run simple test
+        env:
+          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL }}
+          WARMUP_SECONDS: 10
+          TEST_SECONDS: 60
+          RPS: 5
+          DUPLICATE_PERCENT: 10
+          MAX_POLL_SECONDS: 20
+        run: bash scripts/simple-test.sh
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-test-report
+          path: reports/*.json
+
+      - name: Shutdown
+        if: always()
+        run: docker compose down -v

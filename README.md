@@ -24,7 +24,7 @@ docker compose up --build
 
 O mock fica em:
 - Base URL: `http://localhost:8080`
-- Health: `GET http://localhost:8080/admin/health`
+- Health: `GET http://localhost:8080/health`
 
 ### Configurar o webhook do participante
 O mock envia eventos para `WEBHOOK_URL` (definido no `docker-compose.yml`). Por padrão:
@@ -78,19 +78,20 @@ curl -sS http://localhost:8080/provider/pix/payments/<provider_payment_id> | jq
 
 ## Caos e cenários de falha
 Você pode forçar um cenário por request com o header `X-Mock-Scenario`:
-- `success` → responde rápido e confirma
-- `timeout` → simula timeout (mas o mock pode confirmar depois via webhook)
+- `success` → responde 202 e confirma via webhook
+- `timeout_then_confirm` → simula timeout, mas confirma depois via webhook
+- `timeout_then_reject` → simula timeout, mas rejeita depois via webhook
 - `http500` → responde 500
-- `confirm` → responde 202 e confirma via webhook
-- `reject` → responde 202 e rejeita via webhook
-- `confirm_late` → confirma com atraso maior (bom para exercitar reconciliação)
-- `out_of_order` → manda eventos fora de ordem (ex: CONFIRMED antes de PENDING)
+- `accept_then_confirm` → responde 202 e confirma via webhook
+- `accept_then_reject` → responde 202 e rejeita via webhook
+
+Obs.: envio de eventos fora de ordem e duplicados é controlado por probabilidade via variáveis `P_OUT_OF_ORDER_EVENT` e `P_DUPLICATE_EVENT`.
 
 Exemplo (forçando timeout):
 ```bash
 curl -i -X POST http://localhost:8080/provider/pix/send \
   -H 'Content-Type: application/json' \
-  -H 'X-Mock-Scenario: timeout' \
+  -H 'X-Mock-Scenario: timeout_then_confirm' \
   -d '{"idempotency_key":"idem-002","txid":"tx-002","amount":1200,"receiver_key":"k"}'
 ```
 

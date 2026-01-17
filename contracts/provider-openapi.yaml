@@ -18,7 +18,7 @@ paths:
           schema: { type: string }
         - in: header
           name: X-Mock-Scenario
-          description: força um cenário de falha (success|timeout|http500|confirm|reject|confirm_late|out_of_order)
+          description: força um cenário de falha (success|timeout_then_confirm|timeout_then_reject|http500|accept_then_confirm|accept_then_reject)
           schema: { type: string }
       responses:
         '202':
@@ -46,7 +46,7 @@ paths:
                 $ref: '#/components/schemas/ProviderPayment'
         '404':
           description: Nao encontrado
-  /admin/health:
+  /health:
     get:
       summary: Healthcheck
       responses:

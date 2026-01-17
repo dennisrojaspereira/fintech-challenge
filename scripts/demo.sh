@@ -3,10 +3,10 @@ set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
 
-echo "1) Enviando (cenario: confirm)"
+echo "1) Enviando (cenario: accept_then_confirm)"
 resp=$(curl -sS -X POST "$BASE_URL/provider/pix/send" \
   -H 'Content-Type: application/json' \
-  -H 'X-Mock-Scenario: confirm' \
+  -H 'X-Mock-Scenario: accept_then_confirm' \
   -d '{"idempotency_key":"idem-demo","txid":"tx-demo","amount":1500,"receiver_key":"chave@pix"}')
 
 echo "$resp" | (command -v jq >/dev/null && jq || cat)

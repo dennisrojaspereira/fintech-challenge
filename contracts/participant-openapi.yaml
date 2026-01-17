@@ -107,8 +107,9 @@ components:
       properties:
         event_id: { type: string }
         provider_payment_id: { type: string }
-        type: { type: string, enum: [PAYMENT_PENDING, PAYMENT_CONFIRMED, PAYMENT_REJECTED] }
+        type: { type: string, enum: [PENDING, CONFIRMED, REJECTED] }
         occurred_at: { type: string, format: date-time }
+        correlation_id: { type: string }
         details:
           type: object
           additionalProperties: true

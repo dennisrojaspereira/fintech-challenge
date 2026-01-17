@@ -115,6 +115,30 @@ Variáveis (ver `docker-compose.yml`):
 
 ---
 
+## Teste simples (bash)
+Um teste básico para validar idempotência, latência e reconciliação do participante.
+
+Pré-requisitos:
+- Mock do provedor rodando em `http://localhost:8080`
+- Participante rodando em `http://localhost:8081`
+
+Rodar o teste:
+```bash
+bash scripts/simple-test.sh
+```
+
+Variáveis úteis:
+- `PARTICIPANT_URL` (default: `http://localhost:8081`)
+- `WARMUP_SECONDS` (default: 20)
+- `TEST_SECONDS` (default: 120)
+- `RPS` (default: 5)
+- `DUPLICATE_PERCENT` (default: 10)
+- `MAX_POLL_SECONDS` (default: 20)
+
+O script gera um relatório JSON em `reports/` com métricas básicas.
+
+---
+
 ## Regras da competição e pontuação
 ### Objetivo
 Construir um serviço resiliente que processe envios Pix com **idempotência**, **deduplicação**, **reconciliação** e **consistência final** dos estados.

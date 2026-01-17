@@ -2,18 +2,17 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/json"
+	crand "crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
+	mrand "math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"time"
-
 )
 
 type Config struct {
@@ -60,7 +59,7 @@ type Payment struct {
 type WebhookEvent struct {
 	EventID           string `json:"event_id"`
 	ProviderPaymentID string `json:"provider_payment_id"`
-	Type              string `json:"type"`   // PENDING | CONFIRMED | REJECTED
+	Type              string `json:"type"` // PENDING | CONFIRMED | REJECTED
 	OccurredAt        string `json:"occurred_at"`
 	CorrelationID     string `json:"correlation_id"`
 }
@@ -72,12 +71,15 @@ type Store struct {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	mrand.Seed(time.Now().UnixNano())
 	cfg := readConfig()
 	st := &Store{byID: map[string]*Payment{}, byIdemKey: map[string]string{}}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK); _, _ = w.Write([]byte("ok")) })
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("/provider/pix/send", func(w http.ResponseWriter, r *http.Request) { handleSend(cfg, st, w, r) })
 	mux.HandleFunc("/provider/pix/payments/", func(w http.ResponseWriter, r *http.Request) { handleGet(st, w, r) })
 	mux.HandleFunc("/admin/scenarios", func(w http.ResponseWriter, r *http.Request) { handleScenarioList(w) })
@@ -263,13 +265,13 @@ func handleGet(st *Store, w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"provider_payment_id": p.ProviderPaymentID,
-		"status":             p.Status,
-		"amount":             p.Amount,
-		"receiver_key":       p.ReceiverKey,
-		"txid":               p.TxID,
-		"client_reference":   p.ClientRef,
-		"created_at":         p.CreatedAt.Format(time.RFC3339Nano),
-		"updated_at":         p.UpdatedAt.Format(time.RFC3339Nano),
+		"status":              p.Status,
+		"amount":              p.Amount,
+		"receiver_key":        p.ReceiverKey,
+		"txid":                p.TxID,
+		"client_reference":    p.ClientRef,
+		"created_at":          p.CreatedAt.Format(time.RFC3339Nano),
+		"updated_at":          p.UpdatedAt.Format(time.RFC3339Nano),
 	})
 }
 
@@ -303,8 +305,8 @@ func finalizeLater(cfg Config, st *Store, providerID, correlationID, finalType s
 		CorrelationID:     correlationID,
 	}
 
-	dup := rand.Float64() < cfg.PDuplicateEvent
-	outOfOrder := rand.Float64() < cfg.POutOfOrderEvent
+	dup := mrand.Float64() < cfg.PDuplicateEvent
+	outOfOrder := mrand.Float64() < cfg.POutOfOrderEvent
 
 	// Pode mandar fora de ordem
 	if outOfOrder {
@@ -330,14 +332,14 @@ func pickScenario(cfg Config) string {
 	if cfg.FailureMode == "off" {
 		return "success"
 	}
-	r := rand.Float64()
+	r := mrand.Float64()
 	if r < cfg.PHTTP500 {
 		return "http500"
 	}
 	r -= cfg.PHTTP500
 	if r < cfg.PTimeout {
 		// metade confirma, metade rejeita
-		if rand.Intn(2) == 0 {
+		if mrand.Intn(2) == 0 {
 			return "timeout_then_confirm"
 		}
 		return "timeout_then_reject"
@@ -369,7 +371,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func newID() string {
 	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := crand.Read(b); err != nil {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(b)
@@ -379,9 +381,8 @@ func randInt(min, max int) int {
 	if max <= min {
 		return min
 	}
-	return min + rand.Intn(max-min+1)
+	return min + mrand.Intn(max-min+1)
 }
-
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

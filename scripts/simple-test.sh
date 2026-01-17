@@ -20,6 +20,8 @@ latencies="$tmpdir/latencies.txt"
 payments="$tmpdir/payments.txt"
 errors="$tmpdir/errors.txt"
 dedup_errors="$tmpdir/dedup_errors.txt"
+ledger_entries_file="$tmpdir/ledger-entries.json"
+ledger_balances_file="$tmpdir/ledger-balances.json"
 
 cleanup() {
   rm -rf "$tmpdir"
@@ -28,6 +30,11 @@ trap cleanup EXIT
 
 calc_sleep() {
   awk -v rps="$1" 'BEGIN { if (rps <= 0) { print 0.2 } else { printf "%.3f", 1/rps } }'
+}
+
+clamp_0_100() {
+  local v="$1"
+  awk -v v="$v" 'BEGIN { if (v < 0) v = 0; if (v > 100) v = 100; printf "%.0f", v }'
 }
 
 sleep_warmup=$(calc_sleep "$WARMUP_RPS")
@@ -155,6 +162,44 @@ reconcile() {
   echo "$finalized|$pending"
 }
 
+check_ledger() {
+  ledger_status="missing"
+  ledger_invalid_postings=0
+  ledger_duplicate_postings=0
+  ledger_negative_balances=0
+
+  if ! command -v jq >/dev/null 2>&1; then
+    ledger_status="skipped_no_jq"
+    return
+  fi
+
+  local code_entries
+  code_entries=$(curl -sS -o "$ledger_entries_file" -w "%{http_code}" \
+    -X GET "$PARTICIPANT_URL/ledger/entries" || true)
+
+  if [[ "$code_entries" != "200" ]]; then
+    ledger_status="missing"
+    return
+  fi
+
+  ledger_status="checked"
+
+  ledger_invalid_postings=$(jq '[.entries[] | (
+      (.lines | map(select(.direction=="DEBIT")|.amount) | add // 0) as $d |
+      (.lines | map(select(.direction=="CREDIT")|.amount) | add // 0) as $c |
+      select($d != $c)
+    )] | length' "$ledger_entries_file")
+
+  ledger_duplicate_postings=$(jq '[.entries[].posting_id] | group_by(.) | map(select(length>1)) | length' "$ledger_entries_file")
+
+  local code_balances
+  code_balances=$(curl -sS -o "$ledger_balances_file" -w "%{http_code}" \
+    -X GET "$PARTICIPANT_URL/ledger/balances" || true)
+  if [[ "$code_balances" == "200" ]]; then
+    ledger_negative_balances=$(jq '[.balances[] | select(.amount < 0)] | length' "$ledger_balances_file")
+  fi
+}
+
 warmup
 main_load
 
@@ -175,6 +220,52 @@ if [[ "$total_requests" -gt 0 ]]; then
   p99=$(sort -n "$latencies" | awk -v idx="$p99_index" 'NR==idx {print; exit}')
 fi
 
+check_ledger
+
+total_finalized=$((finalized + pending))
+success_rate=0
+if [[ "$total_finalized" -gt 0 ]]; then
+  success_rate=$(awk -v f="$finalized" -v t="$total_finalized" 'BEGIN { printf "%.4f", f/t }')
+fi
+error_rate=0
+if [[ "$total_requests" -gt 0 ]]; then
+  error_rate=$(awk -v e="$http_errors" -v t="$total_requests" 'BEGIN { printf "%.4f", e/t }')
+fi
+idem_rate=0
+if [[ "$total_requests" -gt 0 ]]; then
+  idem_rate=$(awk -v e="$idem_mismatches" -v t="$total_requests" 'BEGIN { printf "%.4f", e/t }')
+fi
+
+resilience_score=$(clamp_0_100 $(awk -v s="$success_rate" -v e="$error_rate" -v i="$idem_rate" 'BEGIN { printf "%.0f", 100*(s - e - i) }'))
+state_score=$(clamp_0_100 $(awk -v s="$success_rate" 'BEGIN { printf "%.0f", 100*s }'))
+
+perf_score=$(clamp_0_100 $(awk -v p95="$p95" -v p99="$p99" 'BEGIN {
+  p95_pen = (p95 > 200) ? (p95 - 200) * 0.10 : 0;
+  p99_pen = (p99 > 500) ? (p99 - 500) * 0.05 : 0;
+  score = 100 - p95_pen - p99_pen;
+  printf "%.0f", score;
+}'))
+
+ledger_ok=false
+ledger_score=0
+if [[ "$ledger_status" == "checked" ]]; then
+  if [[ "$ledger_invalid_postings" -eq 0 && "$ledger_duplicate_postings" -eq 0 && "$ledger_negative_balances" -eq 0 ]]; then
+    ledger_ok=true
+    ledger_score=100
+  else
+    ledger_ok=false
+    ledger_score=0
+  fi
+fi
+
+ops_score=0
+ops_status="manual_review"
+
+overall_approved=false
+if [[ "$ledger_ok" == "true" && "$resilience_score" -ge 70 && "$state_score" -ge 70 ]]; then
+  overall_approved=true
+fi
+
 cat > "$report_file" <<JSON
 {
   "participant_url": "${PARTICIPANT_URL}",
@@ -188,7 +279,26 @@ cat > "$report_file" <<JSON
   "latency_ms_p95": ${p95},
   "latency_ms_p99": ${p99},
   "finalized": ${finalized},
-  "pending": ${pending}
+  "pending": ${pending},
+  "ledger": {
+    "status": "${ledger_status}",
+    "ok": ${ledger_ok},
+    "invalid_postings": ${ledger_invalid_postings},
+    "duplicate_postings": ${ledger_duplicate_postings},
+    "negative_balances": ${ledger_negative_balances}
+  },
+  "scores": {
+    "ledger": ${ledger_score},
+    "resilience": ${resilience_score},
+    "states": ${state_score},
+    "operations": ${ops_score},
+    "performance": ${perf_score}
+  },
+  "notes": {
+    "operations": "${ops_status}",
+    "ledger_requires_jq": true
+  },
+  "approved": ${overall_approved}
 }
 JSON
 

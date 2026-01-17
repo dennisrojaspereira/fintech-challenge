@@ -142,6 +142,7 @@ Variáveis úteis:
 - `MAX_POLL_SECONDS` (default: 20)
 
 O script gera um relatório JSON em `reports/` com métricas básicas.
+Para validação automática do **ledger**, recomenda-se ter `jq` instalado.
 
 ---
 
@@ -197,6 +198,134 @@ Onde:
 - Serviço participante executável.
 - Instruções de execução (README).
 - Relatório com métricas (ex.: JSON ou texto simples).
+
+---
+
+## Avaliação (score conceitual do Fintech Challenge)
+O score responde a uma pergunta única:
+
+**Esse backend consegue operar Pix sem perder dinheiro e sem colapsar sob falha?**
+
+### Visão geral
+O Fintech Challenge **não usa um único número mágico**.
+O score é composto, baseado em critérios técnicos objetivos, com regras eliminatórias:
+
+1) Primeiro valida se o sistema é financeiramente correto.
+2) Depois mede se ele é resiliente e operável.
+3) Só no final entra performance.
+
+### Estrutura do score (pesos)
+- Correção financeira (ledger): **40%**
+- Resiliência e idempotência: **25%**
+- Modelagem de estados: **15%**
+- Operação e observabilidade: **10%**
+- Performance: **10%**
+
+---
+
+### 1) Correção financeira (40%) – eliminatório
+**Esse é o núcleo do challenge.**
+
+O que é validado:
+- Todo posting fecha: **débito = crédito**
+- Nenhum double debit
+- Nenhum saldo inconsistente
+- Nenhum lançamento duplicado em retry/reprocessamento
+- Estados terminais não alteram ledger
+
+Como é medido:
+- Automático via `/ledger/entries` e `/ledger/balances`
+
+**Regra dura**:
+Se falhar aqui, o score final é **zero**.
+Não importa latência, stack ou arquitetura.
+
+Isso reflete o mundo real: **fintech pode ser lenta, mas não pode errar dinheiro.**
+
+---
+
+### 2) Resiliência e idempotência (25%)
+O que é testado:
+- Timeout após envio
+- Erros 5xx
+- Retry com backoff
+- Webhooks duplicados
+- Eventos fora de ordem
+- Confirmação tardia
+
+Critérios de pontuação:
+- Estado final correto
+- Nenhuma duplicidade
+- Recuperação automática
+- Backlog processado após falha
+
+Aqui o sistema é **maltratado** de propósito.
+
+---
+
+### 3) Modelagem de estados (15%)
+Avaliação:
+- Estados bem definidos
+- Transições válidas
+- Estados terminais imutáveis
+- Nenhum estado ambíguo ou zumbi
+
+Exemplos:
+- `CONFIRMED` não pode voltar para `PENDING`
+- `REJECTED` não pode gerar novos postings
+
+Essa parte é parcialmente automática e parcialmente revisada.
+
+---
+
+### 4) Operação e observabilidade (10%)
+Checklist:
+- Logs estruturados
+- `correlation_id`
+- `payment_id` rastreável
+- Métricas básicas (erro, latência, backlog)
+- Capacidade de responder: “por que esse Pix está assim?”
+
+Não é sobre stack de observabilidade, é sobre **operabilidade real**.
+
+---
+
+### 5) Performance (10%) – propositalmente secundário
+O que conta:
+- P95/P99 aceitáveis
+- Sem degradação catastrófica
+- Respeito a rate limit
+
+O que não conta:
+- Micro‑otimizações
+- Hacks para ganhar benchmark
+
+Performance **não compensa** erro financeiro.
+
+---
+
+### Como o score final é apresentado
+O resultado não é só um número. É um relatório, por exemplo:
+
+- Correção financeira: OK
+- Resiliência: 82%
+- Estados: OK
+- Operação: OK
+- Performance: 75%
+
+**Resultado final: APROVADO**
+
+Ou:
+
+- Correção financeira: FALHOU
+
+**Resultado final: REPROVADO**
+
+---
+
+### Diferença-chave para a rinha
+Nao queremos: **“qual é o backend mais rápido?”**
+Fintech Challenge pergunta: **“qual backend eu colocaria para operar Pix amanhã?”**
 
 ---
 

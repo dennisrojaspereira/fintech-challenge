@@ -32,7 +32,7 @@ jobs:
 
       - name: Run simple test
         env:
-          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL }}
+          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}
           WARMUP_SECONDS: 10
           TEST_SECONDS: 60
           RPS: 5

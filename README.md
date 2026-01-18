@@ -6,6 +6,7 @@ A proposta: cada time implementa um serviço "participante" que expõe uma API m
 
 ## O que tem aqui
 - `mock-provider/`: mock do provedor Pix (HTTP) com caos (timeout, 5xx, duplicidade e fora de ordem)
+- `participant-mock/`: participante mínimo para simular o backend no CI/local
 - `contracts/participant-openapi.yaml`: contrato que cada time deve implementar
 - `contracts/provider-openapi.yaml`: contrato do mock do provedor
 - `docker-compose.yml`: sobe o mock localmente
@@ -22,6 +23,8 @@ cd pix-fintech-challenge
 docker compose up --build
 ```
 
+Esse compose sobe também um **participante mock** em `http://localhost:8081`, para facilitar testes e CI.
+
 Por padrão, o mock sobe com limites de CPU/memória (para fairness):
 - CPU: 0.25
 - Memória: 128 MB
@@ -34,7 +37,9 @@ O mock fica em:
 
 ### Configurar o webhook do participante
 O mock envia eventos para `WEBHOOK_URL` (definido no `docker-compose.yml`). Por padrão:
-- `http://host.docker.internal:8081/webhooks/pix`
+- `http://participant:8081/webhooks/pix` (quando usando o participante mock via compose)
+
+Se você usar seu próprio participante fora do compose, ajuste `WEBHOOK_URL` para `http://host.docker.internal:8081/webhooks/pix` ou para o endereço que preferir.
 
 Ou seja, seu serviço participante precisa estar rodando localmente na porta `8081` e expor `POST /webhooks/pix`.
 
@@ -131,6 +136,11 @@ Pré-requisitos:
 Rodar o teste:
 ```bash
 bash scripts/simple-test.sh
+```
+
+No Windows (PowerShell):
+```powershell
+./scripts/simple-test.ps1
 ```
 
 Variáveis úteis:

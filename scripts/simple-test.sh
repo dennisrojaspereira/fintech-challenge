@@ -332,3 +332,10 @@ cat > "$report_file" <<JSON
 JSON
 
 echo "Relatório gerado em: $report_file"
+
+success_percent=$(awk -v s="$success_rate" 'BEGIN { printf "%.2f", s*100 }')
+if [[ "$overall_approved" == "true" ]]; then
+  echo "Resultado: APROVADO (${success_percent}% de sucesso)"
+else
+  echo "Resultado: REPROVADO (${success_percent}% de sucesso)"
+fi

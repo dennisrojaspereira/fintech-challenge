@@ -7,6 +7,8 @@ on:
 jobs:
   simple-test:
     runs-on: ubuntu-latest
+    env:
+      PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +35,7 @@ jobs:
       - name: Wait for participant health
         run: |
           for i in {1..30}; do
-            if curl -fsS http://localhost:8081/health >/dev/null; then
+            if curl -fsS "$PARTICIPANT_URL/health" >/dev/null; then
               exit 0
             fi
             sleep 1

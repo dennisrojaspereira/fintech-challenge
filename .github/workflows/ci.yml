@@ -8,7 +8,7 @@ jobs:
   simple-test:
     runs-on: ubuntu-latest
     env:
-      PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}
+      PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +32,18 @@ jobs:
           echo "Mock provider not healthy" >&2
           exit 1
 
+      - name: Detect participant URL
+        id: participant
+        run: |
+          if [ -z "$PARTICIPANT_URL" ]; then
+            echo "Participant URL not set; skipping participant checks and tests."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Wait for participant health
+        if: steps.participant.outputs.present == 'true'
         run: |
           for i in {1..30}; do
             if curl -fsS "$PARTICIPANT_URL/health" >/dev/null; then
@@ -44,8 +55,9 @@ jobs:
           exit 1
 
       - name: Run simple test
+        if: steps.participant.outputs.present == 'true'
         env:
-          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}
+          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL }}
           WARMUP_SECONDS: 10
           TEST_SECONDS: 60
           RPS: 5

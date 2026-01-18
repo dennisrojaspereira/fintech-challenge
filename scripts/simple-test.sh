@@ -24,6 +24,11 @@ dedup_errors="$tmpdir/dedup_errors.txt"
 ledger_entries_file="$tmpdir/ledger-entries.json"
 ledger_balances_file="$tmpdir/ledger-balances.json"
 
+: > "$latencies"
+: > "$payments"
+: > "$errors"
+: > "$dedup_errors"
+
 cleanup() {
   rm -rf "$tmpdir"
 }

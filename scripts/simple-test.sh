@@ -145,7 +145,7 @@ main_load() {
 }
 
 reconcile() {
-  echo "Reconciliação (poll) por até ${MAX_POLL_SECONDS}s por pagamento..."
+  echo "Reconciliação (poll) por até ${MAX_POLL_SECONDS}s por pagamento..." >&2
   local finalized=0
   local pending=0
 

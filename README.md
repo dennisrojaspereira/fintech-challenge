@@ -1,5 +1,28 @@
 # fintech-challenge : Envio de Pix (Mock do Provedor)
 
+Contamos com o apoio dos seguintes patrocinadores, que oferecerão benefícios exclusivos para os 3 primeiros colocados:
+
+🟢 Woovi
+
+Passagem aérea
+
+Hospedagem
+
+Visita ao datacenter da Woovi
+Saiba mais: https://woovi.com/
+
+🔵 Codecon
+
+1 ingresso para o Codecon Summit
+Saiba mais: https://codecon.dev/
+
+🟣 FintechDev
+
+Acesso completo ao curso FintechDev
+Saiba mais: https://fintechdev.com.br/
+
+Quer ser patrocinador ? Entre em contato https://technapratica.com.br
+
 Este repositório entrega **um mock de provedor Pix** (simulador) + contratos (OpenAPI) para padronizar uma fintech-challenge focada em **resiliência, idempotência, deduplicação e reconciliação**.
 
 A proposta: cada time implementa um serviço "participante" que expõe uma API mínima (`/pix/send`, `/webhooks/pix`, etc.) e conversa com o mock do provedor.

@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci
+  cancel-in-progress: false
+
 jobs:
   simple-test:
     runs-on: ubuntu-latest

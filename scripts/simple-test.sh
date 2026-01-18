@@ -10,6 +10,8 @@ DUPLICATE_PERCENT=${DUPLICATE_PERCENT:-10}
 MAX_POLL_SECONDS=${MAX_POLL_SECONDS:-20}
 SLEEP_BETWEEN_POLLS=${SLEEP_BETWEEN_POLLS:-1}
 RECONCILE_SAMPLE_SIZE=${RECONCILE_SAMPLE_SIZE:-50}
+BACEN_SEND_TARGET=${BACEN_SEND_TARGET:-10000}
+BACEN_RECEIVE_TARGET=${BACEN_RECEIVE_TARGET:-10000}
 
 run_id=$(date +%Y%m%d%H%M%S)
 report_dir="reports"
@@ -302,6 +304,8 @@ cat > "$report_file" <<JSON
   "test_seconds": ${TEST_SECONDS},
   "rps": ${RPS},
   "duplicate_percent": ${DUPLICATE_PERCENT},
+  "bacen_send_target": ${BACEN_SEND_TARGET},
+  "bacen_receive_target": ${BACEN_RECEIVE_TARGET},
   "total_requests": ${total_requests},
   "http_errors": ${http_errors},
   "idempotency_mismatches": ${idem_mismatches},

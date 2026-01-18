@@ -136,6 +136,8 @@ Variáveis (ver `docker-compose.yml`):
 ## Teste simples (bash)
 Um teste básico para validar idempotência, latência e reconciliação do participante.
 
+O processo assume **10k enviando e 10k recebendo do Bacen** como referência de volume.
+
 Pré-requisitos:
 - Mock do provedor rodando em `http://localhost:8080`
 - Participante rodando em `http://localhost:8081`
@@ -158,6 +160,8 @@ Variáveis úteis:
 - `DUPLICATE_PERCENT` (default: 10)
 - `MAX_POLL_SECONDS` (default: 20)
 - `RECONCILE_SAMPLE_SIZE` (default: 50)
+- `BACEN_SEND_TARGET` (default: 10000)
+- `BACEN_RECEIVE_TARGET` (default: 10000)
 
 O script gera um relatório JSON em `reports/` com métricas básicas.
 Para validação automática do **ledger**, recomenda-se ter `jq` instalado.
@@ -170,6 +174,8 @@ Exemplo de resultado esperado (valores ilustrativos):
   "test_seconds": 120,
   "rps": 5,
   "duplicate_percent": 10,
+  "bacen_send_target": 10000,
+  "bacen_receive_target": 10000,
   "total_requests": 31852,
   "http_errors": 0,
   "idempotency_mismatches": 0,

@@ -30,6 +30,17 @@ jobs:
           echo "Mock provider not healthy" >&2
           exit 1
 
+      - name: Wait for participant health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8081/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Participant not healthy" >&2
+          exit 1
+
       - name: Run simple test
         env:
           PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}

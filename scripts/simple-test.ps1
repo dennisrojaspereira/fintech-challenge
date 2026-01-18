@@ -19,6 +19,7 @@ $payments = New-Object System.Collections.Generic.List[string]
 $errors = 0
 $idempotencyMismatches = 0
 
+$null = Add-Type -AssemblyName System.Net.Http
 $client = New-Object System.Net.Http.HttpClient
 $client.Timeout = [TimeSpan]::FromSeconds(10)
 
@@ -104,12 +105,12 @@ function Reconcile() {
     $finalized = 0
     $pending = 0
 
-    foreach ($pid in $payments) {
-        if (-not $pid) { continue }
+    foreach ($paymentId in $payments) {
+        if (-not $paymentId) { continue }
         $start = Get-Date
         $done = $false
         while ((Get-Date) -lt $start.AddSeconds($MaxPollSeconds)) {
-            $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, "$ParticipantUrl/pix/send/$pid")
+            $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, "$ParticipantUrl/pix/send/$paymentId")
             try {
                 $resp = $client.SendAsync($req).GetAwaiter().GetResult()
                 if ([int]$resp.StatusCode -eq 200) {

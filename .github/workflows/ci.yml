@@ -57,7 +57,7 @@ jobs:
       - name: Run simple test
         if: steps.participant.outputs.present == 'true'
         env:
-          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL }}
+          PARTICIPANT_URL: ${{ vars.PARTICIPANT_URL || 'http://localhost:8081' }}
           WARMUP_SECONDS: 10
           TEST_SECONDS: 60
           RPS: 5
@@ -66,11 +66,12 @@ jobs:
         run: bash scripts/simple-test.sh
 
       - name: Upload report
-        if: always()
+        if: steps.participant.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: simple-test-report
           path: reports/*.json
+          if-no-files-found: warn
 
       - name: Shutdown
         if: always()

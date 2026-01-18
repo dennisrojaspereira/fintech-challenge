@@ -142,6 +142,49 @@ Pré-requisitos:
 - Mock do provedor rodando em `http://localhost:8080`
 - Participante rodando em `http://localhost:8081`
 
+Diagrama de sequência do teste:
+```mermaid
+sequenceDiagram
+  autonumber
+  participant T as Simple Test
+  participant P as Participante
+  participant M as Provedor (Mock/Bacen)
+  participant L as Ledger
+
+  T->>P: GET /health
+  P-->>T: 200 OK
+
+  loop Warmup (RPS baixo)
+    T->>P: POST /pix/send (Idempotency-Key)
+    P->>L: registra hold/entrada
+    P->>M: POST /provider/pix/send
+    M-->>P: 202 Accepted
+    P-->>T: 202 Accepted (payment_id)
+  end
+
+  loop Carga principal
+    T->>P: POST /pix/send (Idempotency-Key)
+    P->>L: registra hold/entrada
+    P->>M: POST /provider/pix/send
+    M-->>P: 202/5xx/timeout (cenário)
+    P-->>T: 202 Accepted
+  end
+
+  M-->>P: POST /webhooks/pix (PENDING)
+  M-->>P: POST /webhooks/pix (CONFIRMED/REJECTED)
+  M-->>P: (opcional) webhook duplicado/fora de ordem
+  P->>L: lança/fecha no ledger
+
+  loop Reconciliação
+    T->>P: GET /pix/send/{payment_id}
+    P-->>T: status final
+  end
+
+  T->>P: GET /ledger/entries
+  T->>P: GET /ledger/balances
+  T-->>T: gera relatório JSON
+```
+
 Rodar o teste:
 ```bash
 bash scripts/simple-test.sh

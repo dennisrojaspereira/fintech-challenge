@@ -289,6 +289,26 @@ Para o CI funcionar, o participante precisa estar acessível. Configure a variá
 
 O relatório do teste é publicado como artefato do workflow.
 
+#### Como rodar local
+1) Suba o mock e o participante.
+2) Execute o teste:
+  - Linux/macOS: [scripts/simple-test.sh](scripts/simple-test.sh)
+  - Windows (PowerShell): [scripts/simple-test.ps1](scripts/simple-test.ps1)
+
+#### Como funciona o score no CI (e onde ver)
+Quando você abre ou atualiza um PR (exemplo):
+https://github.com/dennisrojaspereira/fintech-challenge/pull/1
+
+O GitHub Actions dispara automaticamente a pipeline de CI:
+https://github.com/dennisrojaspereira/fintech-challenge/actions/runs/21104038197/job/60692468128
+
+Essa pipeline executa os testes e a avaliação do código. Ao final, ela gera um artifact.
+
+Dentro desse artifact fica o score da avaliação. Para ver o resultado, é só baixar o artifact neste link:
+https://github.com/dennisrojaspereira/fintech-challenge/actions/runs/21104038197/artifacts/5166462427
+
+Resumindo: PR → pipeline roda → artifact é gerado → ao baixar o artifact você encontra o score.
+
 ---
 
 ## Regras da competição e pontuação

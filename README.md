@@ -359,6 +359,61 @@ Para cada pagamento, ao final do processamento, o saldo precisa refletir:
 - se o pagamento for rejeitado, qualquer "hold"/reserva deve ser estornada
 - taxas devem ser registradas sem quebrar o fechamento contábil
 
+### Reconciliação de Pagamentos
+
+Em integrações Pix, timeout não significa falha.
+
+Um Pix pode ser processado com sucesso pelo provedor (Bacen/PSP) mesmo que:
+
+a requisição tenha retornado timeout,
+
+o serviço do provedor tenha caído após processar,
+
+o webhook de confirmação nunca chegue ou chegue atrasado.
+
+Por isso, este desafio exige um mecanismo de reconciliação.
+
+### O que é reconciliação
+
+Reconciliação é um processo que verifica periodicamente pagamentos em estados intermediários (ex: PENDING) e consulta o provedor para descobrir o estado real da transação.
+
+Ela garante que o sistema:
+
+não deixe dinheiro preso em hold,
+
+não fique indefinidamente inconsistente com o provedor,
+
+converja para um estado final correto.
+
+### Como implementar
+
+A implementação é livre. Exemplos válidos:
+
+um job periódico (cron/scheduler),
+
+um worker contínuo,
+
+um endpoint operacional acionado manualmente.
+
+O importante é que pagamentos pendentes por tempo excessivo sejam reconciliados via:
+
+GET /provider/payments/{provider_reference}
+
+### Regras importantes
+
+Reconciliação é fallback, não substitui webhooks.
+
+O processo deve respeitar idempotência e deduplicação.
+
+Estados terminais (CONFIRMED, REJECTED) não podem ser alterados.
+
+Reprocessamento não pode gerar lançamentos duplicados no ledger.
+
+### Regra de ouro
+
+Webhooks são uma otimização.
+Reconciliação é a garantia.
+
 ### Contas sugeridas (exemplo)
 Você pode adaptar os nomes, mas mantenha a lógica de dupla entrada:
 - `CUSTOMER_AVAILABLE` (saldo disponível do cliente)

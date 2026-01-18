@@ -22,3 +22,11 @@ services:
       - MAX_LATENCY_MS=350
       - FINALIZE_MIN_MS=400
       - FINALIZE_MAX_MS=1500
+
+  participant:
+    build: ./participant-mock
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - PROVIDER_URL=http://mock-provider:8080

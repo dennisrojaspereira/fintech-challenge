@@ -157,6 +157,7 @@ Variáveis úteis:
 - `RPS` (default: 5)
 - `DUPLICATE_PERCENT` (default: 10)
 - `MAX_POLL_SECONDS` (default: 20)
+- `RECONCILE_SAMPLE_SIZE` (default: 50)
 
 O script gera um relatório JSON em `reports/` com métricas básicas.
 Para validação automática do **ledger**, recomenda-se ter `jq` instalado.

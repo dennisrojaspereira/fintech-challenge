@@ -9,6 +9,8 @@ $DuplicatePercent = if ($env:DUPLICATE_PERCENT) { [int]$env:DUPLICATE_PERCENT } 
 $MaxPollSeconds = if ($env:MAX_POLL_SECONDS) { [int]$env:MAX_POLL_SECONDS } else { 20 }
 $SleepBetweenPolls = if ($env:SLEEP_BETWEEN_POLLS) { [int]$env:SLEEP_BETWEEN_POLLS } else { 1 }
 $SampleSize = if ($env:RECONCILE_SAMPLE_SIZE) { [int]$env:RECONCILE_SAMPLE_SIZE } else { 50 }
+$BacenSendTarget = if ($env:BACEN_SEND_TARGET) { [int]$env:BACEN_SEND_TARGET } else { 10000 }
+$BacenReceiveTarget = if ($env:BACEN_RECEIVE_TARGET) { [int]$env:BACEN_RECEIVE_TARGET } else { 10000 }
 
 $runId = Get-Date -Format "yyyyMMddHHmmss"
 $reportDir = Join-Path $PSScriptRoot "..\reports"
@@ -59,6 +61,18 @@ function Send-Once($idem, $txid, $amount, $receiverKey, $clientRef) {
         $errors++
         return @{ PaymentId = $null; Status = 0 }
     }
+}
+
+function Wait-For-Participant {
+    Write-Host "Aguardando participante em $ParticipantUrl/health..."
+    for ($i = 0; $i -lt 30; $i++) {
+        try {
+            $resp = $client.GetAsync("$ParticipantUrl/health").GetAwaiter().GetResult()
+            if ([int]$resp.StatusCode -eq 200) { return }
+        } catch { }
+        Start-Sleep -Seconds 1
+    }
+    throw "Participante não respondeu em $ParticipantUrl/health"
 }
 
 function Warmup() {
@@ -183,6 +197,7 @@ function Check-Ledger {
     return $result
 }
 
+Wait-For-Participant
 Warmup
 MainLoad
 $recon = Reconcile
@@ -197,9 +212,17 @@ $successRate = if (($recon.Finalized + $recon.Pending) -gt 0) { [Math]::Round($r
 $errorRate = if ($totalRequests -gt 0) { [Math]::Round($errors / $totalRequests, 4) } else { 0 }
 $idemRate = if ($totalRequests -gt 0) { [Math]::Round($idempotencyMismatches / $totalRequests, 4) } else { 0 }
 
+$p95Penalty = if ($p95 -gt 200) { [Math]::Round(($p95 - 200) * 0.10, 4) } else { 0 }
+$p99Penalty = if ($p99 -gt 500) { [Math]::Round(($p99 - 500) * 0.05, 4) } else { 0 }
+
 $resilienceScore = [Math]::Max(0, [Math]::Min(100, [int](100 * ($successRate - $errorRate - $idemRate))))
 $stateScore = [Math]::Max(0, [Math]::Min(100, [int](100 * $successRate)))
-$perfScore = [Math]::Max(0, [Math]::Min(100, [int](100 - [Math]::Max(0, ($p95 - 200) * 0.10) - [Math]::Max(0, ($p99 - 500) * 0.05))))
+$perfScore = [Math]::Max(0, [Math]::Min(100, [int](100 - $p95Penalty - $p99Penalty)))
+
+$latencyPenalty = 0
+$perfScoreClamped = [Math]::Max(0, [Math]::Min(100, (100 - $p95Penalty - $p99Penalty)))
+$latencyPenalty = [Math]::Round(1 - ($perfScoreClamped / 100), 4)
+$overallScore = [Math]::Max(0, [Math]::Min(100, [int](100 * (0.55 * $successRate - 0.25 * $errorRate - 0.20 * $latencyPenalty))))
 
 $ledgerOk = $false
 $ledgerScore = 0
@@ -219,6 +242,8 @@ $report = [ordered]@{
     test_seconds = $TestSeconds
     rps = $Rps
     duplicate_percent = $DuplicatePercent
+    bacen_send_target = $BacenSendTarget
+    bacen_receive_target = $BacenReceiveTarget
     total_requests = $totalRequests
     http_errors = $errors
     idempotency_mismatches = $idempotencyMismatches
@@ -234,17 +259,39 @@ $report = [ordered]@{
         negative_balances = $ledger.NegativeBalances
     }
     scores = [ordered]@{
+        overall = $overallScore
         ledger = $ledgerScore
         resilience = $resilienceScore
         states = $stateScore
         operations = 0
         performance = $perfScore
     }
+    penalties = [ordered]@{
+        latency = $latencyPenalty
+        p95 = $p95Penalty
+        p99 = $p99Penalty
+    }
+    calc = [ordered]@{
+        success_rate = $successRate
+        error_rate = $errorRate
+        idempotency_rate = $idemRate
+        latency_penalty = $latencyPenalty
+        total_finalized = ($recon.Finalized + $recon.Pending)
+    }
     notes = [ordered]@{
         operations = "manual_review"
+        ledger_requires_jq = $true
     }
     approved = $approved
 }
 
 $report | ConvertTo-Json -Depth 6 | Out-File -Encoding UTF8 $reportFile
 Write-Host "Relatório gerado em: $reportFile"
+
+$successPercent = [Math]::Round($successRate * 100, 2)
+if ($approved) {
+    Write-Host "Resultado: APROVADO ($successPercent% de sucesso)"
+} else {
+    Write-Host "Resultado: REPROVADO ($successPercent% de sucesso)"
+}
+Write-Host "Cálculo: S=$successRate E=$errorRate L=$latencyPenalty p95_pen=$p95Penalty p99_pen=$p99Penalty overall=$overallScore"

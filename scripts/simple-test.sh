@@ -9,6 +9,7 @@ WARMUP_RPS=${WARMUP_RPS:-2}
 DUPLICATE_PERCENT=${DUPLICATE_PERCENT:-10}
 MAX_POLL_SECONDS=${MAX_POLL_SECONDS:-20}
 SLEEP_BETWEEN_POLLS=${SLEEP_BETWEEN_POLLS:-1}
+RECONCILE_SAMPLE_SIZE=${RECONCILE_SAMPLE_SIZE:-50}
 
 run_id=$(date +%Y%m%d%H%M%S)
 report_dir="reports"
@@ -143,8 +144,13 @@ reconcile() {
   local finalized=0
   local pending=0
 
+  local count=0
   while IFS= read -r pid; do
     [[ -z "$pid" ]] && continue
+    count=$((count+1))
+    if [[ "$count" -gt "$RECONCILE_SAMPLE_SIZE" ]]; then
+      break
+    fi
     local done=0
     local start=$(date +%s)
     while [[ $(date +%s) -lt $((start + MAX_POLL_SECONDS)) ]]; do

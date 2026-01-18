@@ -8,6 +8,7 @@ $WarmupRps = if ($env:WARMUP_RPS) { [int]$env:WARMUP_RPS } else { 2 }
 $DuplicatePercent = if ($env:DUPLICATE_PERCENT) { [int]$env:DUPLICATE_PERCENT } else { 10 }
 $MaxPollSeconds = if ($env:MAX_POLL_SECONDS) { [int]$env:MAX_POLL_SECONDS } else { 20 }
 $SleepBetweenPolls = if ($env:SLEEP_BETWEEN_POLLS) { [int]$env:SLEEP_BETWEEN_POLLS } else { 1 }
+$SampleSize = if ($env:RECONCILE_SAMPLE_SIZE) { [int]$env:RECONCILE_SAMPLE_SIZE } else { 50 }
 
 $runId = Get-Date -Format "yyyyMMddHHmmss"
 $reportDir = Join-Path $PSScriptRoot "..\reports"
@@ -105,7 +106,12 @@ function Reconcile() {
     $finalized = 0
     $pending = 0
 
-    foreach ($paymentId in $payments) {
+    $sample = $payments
+    if ($payments.Count -gt $SampleSize) {
+        $sample = $payments | Select-Object -First $SampleSize
+    }
+
+    foreach ($paymentId in $sample) {
         if (-not $paymentId) { continue }
         $start = Get-Date
         $done = $false

@@ -277,6 +277,24 @@ perf_score=$(clamp_0_100 $(awk -v p95="$p95" -v p99="$p99" 'BEGIN {
   printf "%.0f", score;
 }'))
 
+latency_penalty=$(awk -v p95="$p95" -v p99="$p99" 'BEGIN {
+  p95_pen = (p95 > 200) ? (p95 - 200) * 0.10 : 0;
+  p99_pen = (p99 > 500) ? (p99 - 500) * 0.05 : 0;
+  score = 100 - p95_pen - p99_pen;
+  if (score < 0) score = 0;
+  if (score > 100) score = 100;
+  penalty = 1 - (score / 100);
+  if (penalty < 0) penalty = 0;
+  if (penalty > 1) penalty = 1;
+  printf "%.4f", penalty;
+}')
+
+overall_score=$(clamp_0_100 $(awk -v s="$success_rate" -v e="$error_rate" -v l="$latency_penalty" 'BEGIN {
+  score = 100 * (0.55*s - 0.25*e - 0.20*l);
+  if (score < 0) score = 0;
+  printf "%.0f", score;
+}'))
+
 ledger_ok=false
 ledger_score=0
 if [[ "$ledger_status" == "checked" ]]; then
@@ -321,11 +339,15 @@ cat > "$report_file" <<JSON
     "negative_balances": ${ledger_negative_balances}
   },
   "scores": {
+    "overall": ${overall_score},
     "ledger": ${ledger_score},
     "resilience": ${resilience_score},
     "states": ${state_score},
     "operations": ${ops_score},
     "performance": ${perf_score}
+  },
+  "penalties": {
+    "latency": ${latency_penalty}
   },
   "notes": {
     "operations": "${ops_status}",

@@ -12,7 +12,7 @@ services:
     cpus: 0.25
     environment:
       - PORT=8080
-      - WEBHOOK_URL=http://host.docker.internal:8081/webhooks/pix
+      - WEBHOOK_URL=http://participant:8081/webhooks/pix
       - FAILURE_MODE=probabilistic
       - P_TIMEOUT=0.10
       - P_HTTP500=0.05

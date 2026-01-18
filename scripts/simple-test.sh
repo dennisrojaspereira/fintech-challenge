@@ -267,19 +267,18 @@ if [[ "$total_requests" -gt 0 ]]; then
   idem_rate=$(awk -v e="$idem_mismatches" -v t="$total_requests" 'BEGIN { printf "%.4f", e/t }')
 fi
 
+p95_penalty=$(awk -v p95="$p95" 'BEGIN { if (p95 > 200) printf "%.4f", (p95 - 200) * 0.10; else printf "%.4f", 0 }')
+p99_penalty=$(awk -v p99="$p99" 'BEGIN { if (p99 > 500) printf "%.4f", (p99 - 500) * 0.05; else printf "%.4f", 0 }')
+
 resilience_score=$(clamp_0_100 $(awk -v s="$success_rate" -v e="$error_rate" -v i="$idem_rate" 'BEGIN { printf "%.0f", 100*(s - e - i) }'))
 state_score=$(clamp_0_100 $(awk -v s="$success_rate" 'BEGIN { printf "%.0f", 100*s }'))
 
-perf_score=$(clamp_0_100 $(awk -v p95="$p95" -v p99="$p99" 'BEGIN {
-  p95_pen = (p95 > 200) ? (p95 - 200) * 0.10 : 0;
-  p99_pen = (p99 > 500) ? (p99 - 500) * 0.05 : 0;
+perf_score=$(clamp_0_100 $(awk -v p95_pen="$p95_penalty" -v p99_pen="$p99_penalty" 'BEGIN {
   score = 100 - p95_pen - p99_pen;
   printf "%.0f", score;
 }'))
 
-latency_penalty=$(awk -v p95="$p95" -v p99="$p99" 'BEGIN {
-  p95_pen = (p95 > 200) ? (p95 - 200) * 0.10 : 0;
-  p99_pen = (p99 > 500) ? (p99 - 500) * 0.05 : 0;
+latency_penalty=$(awk -v p95_pen="$p95_penalty" -v p99_pen="$p99_penalty" 'BEGIN {
   score = 100 - p95_pen - p99_pen;
   if (score < 0) score = 0;
   if (score > 100) score = 100;
@@ -347,7 +346,16 @@ cat > "$report_file" <<JSON
     "performance": ${perf_score}
   },
   "penalties": {
-    "latency": ${latency_penalty}
+    "latency": ${latency_penalty},
+    "p95": ${p95_penalty},
+    "p99": ${p99_penalty}
+  },
+  "calc": {
+    "success_rate": ${success_rate},
+    "error_rate": ${error_rate},
+    "idempotency_rate": ${idem_rate},
+    "latency_penalty": ${latency_penalty},
+    "total_finalized": ${total_finalized}
   },
   "notes": {
     "operations": "${ops_status}",
@@ -365,3 +373,5 @@ if [[ "$overall_approved" == "true" ]]; then
 else
   echo "Resultado: REPROVADO (${success_percent}% de sucesso)"
 fi
+
+echo "Cálculo: S=${success_rate} E=${error_rate} L=${latency_penalty} p95_pen=${p95_penalty} p99_pen=${p99_penalty} overall=${overall_score}"

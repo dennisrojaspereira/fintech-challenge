@@ -255,11 +255,24 @@ Exemplo de resultado esperado (valores ilustrativos):
     "negative_balances": 1
   },
   "scores": {
+    "overall": 88,
     "ledger": 0,
     "resilience": 94,
     "states": 94,
     "operations": 0,
     "performance": 100
+  },
+  "penalties": {
+    "latency": 0.00,
+    "p95": 0.00,
+    "p99": 0.00
+  },
+  "calc": {
+    "success_rate": 0.94,
+    "error_rate": 0.00,
+    "idempotency_rate": 0.00,
+    "latency_penalty": 0.00,
+    "total_finalized": 50
   },
   "notes": {
     "operations": "manual_review"

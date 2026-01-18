@@ -47,6 +47,13 @@ No Linux, se `host.docker.internal` não resolver, você pode:
 - trocar `WEBHOOK_URL` pelo seu IP local, ou
 - usar `network_mode: host` no serviço do mock (mais simples, mas muda o isolamento).
 
+#### Comportamento do webhook do mock
+- Para cada pagamento, o mock envia **PENDING** e depois **CONFIRMED** ou **REJECTED**.
+- Pode enviar **fora de ordem** (final antes de PENDING).
+- Pode **duplicar o evento final** (mesmo conteúdo, `event_id` diferente).
+- **Não há retry automático** no envio do webhook; se falhar, pode ser necessário reconciliar via `GET /provider/pix/payments/<id>`.
+- Mesmo em cenários de timeout (`timeout_then_confirm/reject`), o webhook ainda é enviado após alguns milissegundos.
+
 ---
 
 ## Como o participante deve funcionar (regras do jogo)
@@ -154,6 +161,42 @@ Variáveis úteis:
 
 O script gera um relatório JSON em `reports/` com métricas básicas.
 Para validação automática do **ledger**, recomenda-se ter `jq` instalado.
+
+Exemplo de resultado esperado (valores ilustrativos):
+```json
+{
+  "participant_url": "http://localhost:8081",
+  "warmup_seconds": 20,
+  "test_seconds": 120,
+  "rps": 5,
+  "duplicate_percent": 10,
+  "total_requests": 31852,
+  "http_errors": 0,
+  "idempotency_mismatches": 0,
+  "latency_ms_p95": 6,
+  "latency_ms_p99": 13,
+  "finalized": 47,
+  "pending": 3,
+  "ledger": {
+    "status": "checked",
+    "ok": false,
+    "invalid_postings": 0,
+    "duplicate_postings": 0,
+    "negative_balances": 1
+  },
+  "scores": {
+    "ledger": 0,
+    "resilience": 94,
+    "states": 94,
+    "operations": 0,
+    "performance": 100
+  },
+  "notes": {
+    "operations": "manual_review"
+  },
+  "approved": false
+}
+```
 
 ### CI (rodar o teste a cada commit)
 Existe um workflow em [\.github/workflows/ci.yml](.github/workflows/ci.yml) que roda o teste simples em cada push/PR.
@@ -359,6 +402,61 @@ Para cada pagamento, ao final do processamento, o saldo precisa refletir:
 - o pagador foi debitado uma única vez quando o Pix é confirmado
 - se o pagamento for rejeitado, qualquer "hold"/reserva deve ser estornada
 - taxas devem ser registradas sem quebrar o fechamento contábil
+
+### Reconciliação de Pagamentos
+
+Em integrações Pix, timeout não significa falha.
+
+Um Pix pode ser processado com sucesso pelo provedor (Bacen/PSP) mesmo que:
+
+a requisição tenha retornado timeout,
+
+o serviço do provedor tenha caído após processar,
+
+o webhook de confirmação nunca chegue ou chegue atrasado.
+
+Por isso, este desafio exige um mecanismo de reconciliação.
+
+### O que é reconciliação
+
+Reconciliação é um processo que verifica periodicamente pagamentos em estados intermediários (ex: PENDING) e consulta o provedor para descobrir o estado real da transação.
+
+Ela garante que o sistema:
+
+não deixe dinheiro preso em hold,
+
+não fique indefinidamente inconsistente com o provedor,
+
+converja para um estado final correto.
+
+### Como implementar
+
+A implementação é livre. Exemplos válidos:
+
+um job periódico (cron/scheduler),
+
+um worker contínuo,
+
+um endpoint operacional acionado manualmente.
+
+O importante é que pagamentos pendentes por tempo excessivo sejam reconciliados via:
+
+GET /provider/payments/{provider_reference}
+
+### Regras importantes
+
+Reconciliação é fallback, não substitui webhooks.
+
+O processo deve respeitar idempotência e deduplicação.
+
+Estados terminais (CONFIRMED, REJECTED) não podem ser alterados.
+
+Reprocessamento não pode gerar lançamentos duplicados no ledger.
+
+### Regra de ouro
+
+Webhooks são uma otimização.
+Reconciliação é a garantia.
 
 ### Contas sugeridas (exemplo)
 Você pode adaptar os nomes, mas mantenha a lógica de dupla entrada:

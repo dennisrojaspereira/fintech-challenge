@@ -9,6 +9,7 @@ WARMUP_RPS=${WARMUP_RPS:-2}
 DUPLICATE_PERCENT=${DUPLICATE_PERCENT:-10}
 MAX_POLL_SECONDS=${MAX_POLL_SECONDS:-20}
 SLEEP_BETWEEN_POLLS=${SLEEP_BETWEEN_POLLS:-1}
+RECONCILE_SAMPLE_SIZE=${RECONCILE_SAMPLE_SIZE:-50}
 
 run_id=$(date +%Y%m%d%H%M%S)
 report_dir="reports"
@@ -32,6 +33,18 @@ calc_sleep() {
   awk -v rps="$1" 'BEGIN { if (rps <= 0) { print 0.2 } else { printf "%.3f", 1/rps } }'
 }
 
+wait_for_participant() {
+  echo "Aguardando participante em $PARTICIPANT_URL/health..."
+  for i in {1..30}; do
+    if curl -fsS "$PARTICIPANT_URL/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Participante não respondeu em $PARTICIPANT_URL/health" >&2
+  return 1
+}
+
 clamp_0_100() {
   local v="$1"
   awk -v v="$v" 'BEGIN { if (v < 0) v = 0; if (v > 100) v = 100; printf "%.0f", v }'
@@ -49,6 +62,7 @@ send_once() {
   local body
   body=$(printf '{"txid":"%s","amount":%s,"receiver_key":"%s","description":"teste","client_reference":"%s"}' "$txid" "$amount" "$receiver_key" "$client_ref")
 
+  : > "$tmpdir/resp.json"
   local resp
   resp=$(curl -sS -o "$tmpdir/resp.json" -w "\n%{http_code}\n%{time_total}\n" \
     -H 'Content-Type: application/json' \
@@ -72,7 +86,11 @@ send_once() {
   echo "$latency_ms" >> "$latencies"
 
   local payment_id
-  payment_id=$(sed -n 's/.*"payment_id"[ ]*:[ ]*"\([^"]*\)".*/\1/p' "$tmpdir/resp.json")
+  if [[ -s "$tmpdir/resp.json" ]]; then
+    payment_id=$(sed -n 's/.*"payment_id"[ ]*:[ ]*"\([^"]*\)".*/\1/p' "$tmpdir/resp.json")
+  else
+    payment_id=""
+  fi
 
   echo "$payment_id|$http_code|$latency_ms"
 }
@@ -126,8 +144,13 @@ reconcile() {
   local finalized=0
   local pending=0
 
+  local count=0
   while IFS= read -r pid; do
     [[ -z "$pid" ]] && continue
+    count=$((count+1))
+    if [[ "$count" -gt "$RECONCILE_SAMPLE_SIZE" ]]; then
+      break
+    fi
     local done=0
     local start=$(date +%s)
     while [[ $(date +%s) -lt $((start + MAX_POLL_SECONDS)) ]]; do
@@ -200,6 +223,7 @@ check_ledger() {
   fi
 }
 
+wait_for_participant
 warmup
 main_load
 
